@@ -6,7 +6,7 @@ import path from "node:path";
 import vm from "node:vm";
 
 async function loadExtensionProtocol() {
-  const filename = path.resolve("..", "..", "extension", "protocol.js");
+  const filename = path.resolve("..", "extension", "protocol.js");
   const source = await fs.readFile(filename, "utf8");
   const context = { globalThis: {} };
   vm.runInNewContext(source, context, { filename });
