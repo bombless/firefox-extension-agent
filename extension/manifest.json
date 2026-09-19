@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Firefox Extension Agent",
+  "version": "0.1.0",
+  "description": "Text-protocol tool loop between Gemini Web and a local Node.js runner.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "firefox-extension-agent@bombless.local"
+    }
+  },
+  "host_permissions": [
+    "https://gemini.google.com/*",
+    "http://127.0.0.1:8765/*"
+  ],
+  "permissions": [],
+  "background": {
+    "scripts": ["background.js"],
+    "type": "classic"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://gemini.google.com/app*"],
+      "js": ["protocol.js", "gemini.js", "content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
