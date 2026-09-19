@@ -21,53 +21,55 @@
     'article[data-author="assistant"]'
   ];
 
-  function isVisible(element) {
+  function visible(element) {
     if (!element) return false;
     const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
     return style.display !== "none" &&
       style.visibility !== "hidden" &&
-      element.getClientRects().length > 0;
+      rect.width > 0 &&
+      rect.height > 0;
   }
 
-  function getComposer() {
+  function getComposerEntry() {
     for (const selector of COMPOSER_SELECTORS) {
       const nodes = document.querySelectorAll(selector);
       for (const node of nodes) {
-        if (isVisible(node)) return node;
+        if (visible(node)) return { node, selector };
       }
     }
     return null;
   }
 
-  function readComposerText(composer) {
+  function getComposer() {
+    return getComposerEntry()?.node || null;
+  }
+
+  function getComposerSelector() {
+    return getComposerEntry()?.selector || null;
+  }
+
+  function getComposerText() {
+    const composer = getComposer();
     if (!composer) return "";
-    return (composer.value ?? composer.innerText ?? composer.textContent ?? "")
-      .replace(/\u00a0/g, " ")
-      .trim();
+    return composer instanceof HTMLTextAreaElement
+      ? composer.value
+      : composer.innerText || composer.textContent || "";
   }
 
   function setComposerText(text) {
     const composer = getComposer();
-    if (!composer) throw new Error("Gemini composer not found");
+    if (!composer) return false;
 
-    composer.focus();
-
-    if ("value" in composer && composer.tagName === "TEXTAREA") {
+    if (composer instanceof HTMLTextAreaElement) {
       const setter = Object.getOwnPropertyDescriptor(
         HTMLTextAreaElement.prototype,
         "value"
       )?.set;
       setter?.call(composer, text);
     } else {
-      const selection = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(composer);
-      selection.removeAllRanges();
-      selection.addRange(range);
-      document.execCommand("insertText", false, text);
-      if (readComposerText(composer) !== text) {
-        composer.textContent = text;
-      }
+      composer.focus();
+      composer.textContent = text;
     }
 
     composer.dispatchEvent(new InputEvent("input", {
@@ -76,21 +78,18 @@
       data: text
     }));
     composer.dispatchEvent(new Event("change", { bubbles: true }));
-    return composer;
+    return true;
   }
 
   function appendToComposer(text) {
-    const composer = getComposer();
-    if (!composer) throw new Error("Gemini composer not found");
-
-    const current = readComposerText(composer);
-    const next = current ? current + "\n\n" + text : text;
-    return setComposerText(next);
+    const current = getComposerText();
+    const separator = current && !current.endsWith("\n") ? "\n\n" : "";
+    return setComposerText(current + separator + text);
   }
 
   function submitComposer() {
     const composer = getComposer();
-    if (!composer) throw new Error("Gemini composer not found");
+    if (!composer) return false;
 
     composer.focus();
     composer.dispatchEvent(new KeyboardEvent("keydown", {
@@ -101,42 +100,34 @@
       bubbles: true,
       cancelable: true
     }));
-    composer.dispatchEvent(new KeyboardEvent("keyup", {
-      key: "Enter",
-      code: "Enter",
-      keyCode: 13,
-      which: 13,
-      bubbles: true
-    }));
+    return true;
   }
 
   function getConversation() {
-    return document.querySelector("main") ||
-      document.querySelector('[role="main"]') ||
-      document.body;
+    return document.querySelector("main") || document.body;
   }
 
   function getLatestModelText() {
     const nodes = [];
     for (const selector of ASSISTANT_SELECTORS) {
-      for (const node of document.querySelectorAll(selector)) {
-        if (isVisible(node) && !nodes.includes(node)) nodes.push(node);
-      }
+      document.querySelectorAll(selector).forEach((node) => {
+        if (visible(node)) nodes.push(node);
+      });
     }
 
-    const candidate = nodes[nodes.length - 1];
-    if (candidate) return candidate.innerText || candidate.textContent || "";
-
-    return "";
+    const unique = [...new Set(nodes)];
+    const latest = unique[unique.length - 1];
+    return latest?.innerText || latest?.textContent || "";
   }
 
   globalThis.GeminiAdapter = Object.freeze({
+    COMPOSER_SELECTORS,
     getComposer,
-    setComposerText,
+    getComposerSelector,
+    getComposerText,
     appendToComposer,
     submitComposer,
     getConversation,
-    getLatestModelText,
-    readComposerText
+    getLatestModelText
   });
 })();
