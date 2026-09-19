@@ -65,7 +65,7 @@ Do not fabricate tool results.
   let lastConversationText = "";
 
   const log = (...args) => {
-    if (DEBUG) console.debug("[fx-agent]", ...args);
+    if (DEBUG) console.debug("[fx-agent/content]", ...args);
   };
 
   function isGeminiPage() {
@@ -73,16 +73,40 @@ Do not fabricate tool results.
       location.pathname.startsWith("/app");
   }
 
-  function injectToolPrompt() {
-    const composer = GeminiAdapter.getComposer();
-    if (!composer) {
-      log("composer not found");
-      return;
+  async function injectToolPrompt() {
+    if (!isGeminiPage()) {
+      log("not a Gemini app page", location.href);
+      return { ok: false, error: "NOT_GEMINI_APP" };
     }
 
+    const composer = GeminiAdapter.getComposer();
+    if (!composer) {
+      log("composer not found", location.href);
+      log("composer candidates", GeminiAdapter.COMPOSER_SELECTORS);
+      return { ok: false, error: "COMPOSER_NOT_FOUND" };
+    }
+
+    const selector = GeminiAdapter.getComposerSelector
+      ? GeminiAdapter.getComposerSelector()
+      : "unknown";
+    log("composer found", { selector, tag: composer.tagName });
+
+    const before = GeminiAdapter.getComposerText
+      ? GeminiAdapter.getComposerText()
+      : "";
     GeminiAdapter.appendToComposer(TOOL_PROMPT);
     composer.focus();
-    log("tool instructions injected");
+
+    const after = GeminiAdapter.getComposerText
+      ? GeminiAdapter.getComposerText()
+      : "";
+    log("tool instructions injected", {
+      beforeLength: before.length,
+      afterLength: after.length,
+      added: after.length >= before.length
+    });
+
+    return { ok: true, selector, beforeLength: before.length, afterLength: after.length };
   }
 
   async function handleActionBlocks(text) {
@@ -108,26 +132,39 @@ Do not fabricate tool results.
       actionRound += 1;
       log("action detected", freshActions);
 
-      const response = await browser.runtime.sendMessage({
-        type: "execute_actions",
-        actions: freshActions
-      });
+      try {
+        const response = await browser.runtime.sendMessage({
+          type: "execute_actions",
+          actions: freshActions
+        });
 
-      if (!response?.ok) {
-        log("runner unavailable", response?.error);
+        if (!response?.ok) {
+          log("runner unavailable", response?.error);
+          await injectToolResults([{
+            id: "runner-error-" + Date.now(),
+            tool: "runtime",
+            ok: false,
+            error: response?.error || {
+              type: "RUNNER_ERROR",
+              message: "Runner unavailable"
+            }
+          }]);
+          return;
+        }
+
+        await injectToolResults(response.payload.results || []);
+      } catch (error) {
+        log("runtime message failed", error);
         await injectToolResults([{
-          id: "runner-error-" + Date.now(),
+          id: "runtime-message-error-" + Date.now(),
           tool: "runtime",
           ok: false,
-          error: response?.error || {
-            type: "RUNNER_ERROR",
-            message: "Runner unavailable"
+          error: {
+            type: "RUNTIME_MESSAGE_ERROR",
+            message: error instanceof Error ? error.message : String(error)
           }
         }]);
-        return;
       }
-
-      await injectToolResults(response.payload.results || []);
       return;
     }
   }
@@ -151,6 +188,11 @@ Do not fabricate tool results.
 
   function startObserver() {
     const conversation = GeminiAdapter.getConversation();
+    if (!conversation) {
+      log("conversation container not found; observer not started");
+      return;
+    }
+
     const observer = new MutationObserver(scheduleScan);
     observer.observe(conversation, {
       subtree: true,
@@ -160,18 +202,25 @@ Do not fabricate tool results.
     log("conversation observer started");
   }
 
+  browser.runtime.onMessage.addListener((message) => {
+    if (!message || message.type !== "inject_tool_prompt") return undefined;
+    log("inject request received");
+    return injectToolPrompt();
+  });
+
   window.addEventListener("keydown", (event) => {
     if (!isGeminiPage()) return;
-    if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "y") {
+    if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey &&
+        event.key.toLowerCase() === "y") {
       event.preventDefault();
       event.stopPropagation();
-      log("Ctrl+Y");
-      injectToolPrompt();
+      log("Ctrl+Y fallback");
+      void injectToolPrompt();
     }
   }, true);
 
   if (isGeminiPage()) {
-    log("initialized");
+    log("initialized", location.href);
     startObserver();
   }
 })();
