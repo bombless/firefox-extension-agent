@@ -51,10 +51,11 @@ export class GitHubClient {
     });
   }
 
-  listFiles(repository, ref = "HEAD") {
+  async listFiles(repository, ref) {
+    const treeRef = ref || (await this.getRepository(repository)).default_branch;
     return this.request(
       "GET",
-      "/repos/" + encodeRepo(repository) + "/git/trees/" + encodeURIComponent(ref) + "?recursive=1"
+      "/repos/" + encodeRepo(repository) + "/git/trees/" + encodeURIComponent(treeRef) + "?recursive=1"
     );
   }
 
@@ -103,12 +104,14 @@ export class GitHubClient {
     );
   }
 
-  createBranch(repository, { branch, from = "main" }) {
+  async createBranch(repository, { branch, from = "main" }) {
+    const sha = from.match(/^[0-9a-f]{40}$/i)
+      ? from
+      : await this.getRepositoryBranchSha(repository, from);
+
     return this.request("POST", "/repos/" + encodeRepo(repository) + "/git/refs", {
       ref: "refs/heads/" + branch,
-      sha: from.match(/^[0-9a-f]{40}$/i)
-        ? from
-        : this.getRepositoryBranchSha(repository, from)
+      sha
     });
   }
 
