@@ -1,0 +1,11 @@
+{
+  "name": "firefox-extension-agent",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test:runner": "npm --prefix runner test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
