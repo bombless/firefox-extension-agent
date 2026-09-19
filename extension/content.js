@@ -22,6 +22,35 @@ Available tools:
 4. replace_file
    params: {"path":"string","content":"string"}
 
+GitHub tools (available when the runner has GITHUB_TOKEN configured):
+
+5. github_create_repository
+   params: {"name":"string","description":"string","private":"boolean","auto_init":"boolean"}
+
+6. github_get_repository
+   params: {"repository":"owner/name"}
+
+7. github_list_files
+   params: {"repository":"owner/name","ref":"string"}
+
+8. github_read_file
+   params: {"repository":"owner/name","path":"string","ref":"string"}
+
+9. github_create_file
+   params: {"repository":"owner/name","path":"string","content":"string","message":"string","branch":"string"}
+
+10. github_update_file
+    params: {"repository":"owner/name","path":"string","content":"string","message":"string","sha":"string","branch":"string"}
+
+11. github_delete_file
+    params: {"repository":"owner/name","path":"string","message":"string","sha":"string","branch":"string"}
+
+12. github_create_branch
+    params: {"repository":"owner/name","branch":"string","from":"string"}
+
+13. github_create_pull_request
+    params: {"repository":"owner/name","title":"string","body":"string","head":"string","base":"string","draft":"boolean"}
+
 After emitting @actions[...], stop and wait for the tool results.
 Tool results will be provided as a new user message using @tool_results[...].
 Do not fabricate tool results.
