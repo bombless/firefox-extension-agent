@@ -5,7 +5,7 @@
   const DEBUG = true;
 
   const log = (...args) => {
-    if (DEBUG) console.debug("[fx-agent]", ...args);
+    if (DEBUG) console.debug("[fx-agent/background]", ...args);
   };
 
   async function executeActions(actions) {
@@ -21,6 +21,31 @@
 
     return response.json();
   }
+
+  browser.commands.onCommand.addListener(async (command) => {
+    if (command !== "inject-tool-prompt") return;
+
+    log("command received", command);
+    try {
+      const tabs = await browser.tabs.query({
+        active: true,
+        currentWindow: true
+      });
+      const tab = tabs[0];
+
+      if (!tab?.id) {
+        log("no active tab");
+        return;
+      }
+
+      const response = await browser.tabs.sendMessage(tab.id, {
+        type: "inject_tool_prompt"
+      });
+      log("content-script response", response);
+    } catch (error) {
+      log("command dispatch failed", error);
+    }
+  });
 
   browser.runtime.onMessage.addListener((message) => {
     if (!message || message.type !== "execute_actions") return undefined;
