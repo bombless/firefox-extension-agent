@@ -2,9 +2,10 @@ import { createListDirectoryTool } from "./list-directory.js";
 import { createReadFileTool } from "./read-file.js";
 import { createWriteFileTool } from "./write-file.js";
 import { createReplaceFileTool } from "./replace-file.js";
+import { createGitHubTools } from "./github.js";
 
 export function createToolRegistry(workspaceGuard) {
-  const tools = {
+  const filesystemTools = {
     list_directory: {
       description: "List files in a directory",
       params: {
@@ -49,7 +50,19 @@ export function createToolRegistry(workspaceGuard) {
     }
   };
 
-  return Object.freeze(tools);
+  let githubTools = {};
+  if (process.env.GITHUB_TOKEN) {
+    try {
+      githubTools = createGitHubTools();
+    } catch (error) {
+      console.warn("[runner] GitHub tools disabled:", error.message);
+    }
+  }
+
+  return Object.freeze({
+    ...filesystemTools,
+    ...githubTools
+  });
 }
 
 export function publicToolDefinitions(registry) {
