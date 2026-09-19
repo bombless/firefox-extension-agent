@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Firefox Extension Agent",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Text-protocol tool loop between Gemini Web and a local Node.js runner.",
   "browser_specific_settings": {
     "gecko": {
@@ -13,6 +13,14 @@
     "http://127.0.0.1:8765/*"
   ],
   "permissions": [],
+  "commands": {
+    "inject-tool-prompt": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y"
+      },
+      "description": "Inject Firefox Extension Agent tool instructions into Gemini"
+    }
+  },
   "background": {
     "scripts": ["background.js"],
     "type": "classic"
